@@ -15,7 +15,7 @@ public class ClamScanTestCase extends TestCase {
     ClamScan scanner;
 
     public void setUp() {
-        scanner = new ClamScan("localhost", 3310, 60);
+        scanner = new ClamScan("localhost", 3310, 60000);
     }
 
 	public void testSuccess() throws Exception {
@@ -39,7 +39,19 @@ public class ClamScanTestCase extends TestCase {
         assertEquals(Status.FAILED, result.getStatus());
 		assertEquals("stream: Eicar-Test-Signature FOUND", result.getResult());
         assertEquals("Eicar-Test-Signature", result.getSignature());
+	}
 
+    public void testTooLarge() throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0 ; i < 6000000; i++){
+            sb.append("0000000000");
+        }
+        InputStream is = new ByteArrayInputStream(sb.toString().getBytes());
+
+		assertNotNull(is);
+        ScanResult result = scanner.scan(is);
+        assertEquals(result.getResult(), Status.ERROR, result.getStatus());
+		assertEquals(ScanResult.RESPONSE_SIZE_EXCEEDED, result.getResult());
 	}
 	
 }
