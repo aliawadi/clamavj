@@ -17,7 +17,7 @@ public class ClamScan {
     private static final int DEFAULT_CHUNK_SIZE = 2048;
     private static final byte[] INSTREAM = "zINSTREAM\0".getBytes();
     private static final byte[] PING = "zPING\0".getBytes();
-    private static final byte[] STATS = "zSTATS\0".getBytes();
+    private static final byte[] STATS = "nSTATS\n".getBytes();
     //  IDSESSION, END
 //    It is mandatory to prefix this command with n or z, and all commands inside IDSESSION must  be
 //    prefixed.
@@ -52,6 +52,77 @@ public class ClamScan {
         setTimeout(timeout);
     }
 
+    public String stats() {
+        return cmd(STATS);
+    }
+
+    public boolean ping() {
+        return "PONG\0".equals(cmd(PING));
+    }
+
+    public String cmd(byte[] cmd){
+
+        Socket socket = new Socket();
+
+        try {
+            socket.connect(new InetSocketAddress(getHost(), getPort()));
+        } catch (IOException e) {
+            log.error("could not connect to clamd server", e);
+            return null;    
+        }
+
+        try {
+            socket.setSoTimeout(getTimeout());
+        } catch (SocketException e) {
+        	log.error("Could not set socket timeout to " + getTimeout() + "ms", e);
+        }
+
+        DataOutputStream dos = null;
+        String response = "";
+        try {  // finally to close resources
+
+            try {
+                dos = new DataOutputStream(socket.getOutputStream());
+            } catch (IOException e) {
+                log.error("could not open socket OutputStream", e);
+                return null;
+            }
+
+            try {
+                dos.write(cmd);
+                dos.flush();
+            } catch (IOException e){
+                log.debug("error writing INSTREAM command", e);
+                return null;
+            }
+
+            int read = DEFAULT_CHUNK_SIZE;
+            byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
+
+            StringBuffer sb = new StringBuffer();
+
+            while (read == DEFAULT_CHUNK_SIZE){
+                try {
+                    read = socket.getInputStream().read(buffer);
+                } catch (IOException e){
+                    log.debug("error reading result from socket", e);
+                    break;
+                }
+                sb.append(new String(buffer, 0, read));
+            }
+
+            response = sb.toString();
+
+        } finally {
+            if (dos != null) try { dos.close(); } catch (IOException e) { log.debug("exception closing DOS", e); }
+            try { socket.close(); } catch (IOException e) { log.debug("exception closing socket", e); }
+        }
+
+        if (log.isDebugEnabled()) log.debug( "Response: " + response);
+
+        return response;
+	}
+
     /**
      *
      * The method to call if you already have the content to scan in-memory as a byte array.
@@ -73,41 +144,76 @@ public class ClamScan {
      * @throws IOException if anything goes awry other than setting the socket timeout or closing the socket
      * or the DataOutputStream wrapping the socket's OutputStream
      */
-    public ScanResult scan(InputStream in) throws IOException {
+    public ScanResult scan(InputStream in) {
 
         Socket socket = new Socket();
-        socket.connect(new InetSocketAddress(getHost(), getPort()));
+
+        try {
+            socket.connect(new InetSocketAddress(getHost(), getPort()));
+        } catch (IOException e) {
+            log.error("could not connect to clamd server", e);
+            return new ScanResult(e);    
+        }
 
         try {
             socket.setSoTimeout(getTimeout());
         } catch (SocketException e) {
-        	log.error("Could not set socket timeout to " + getTimeout() + "ms", e);
+        	log.error("Could not set socket timeout to " + getTimeout() + "ms", e);        
         }
 
         DataOutputStream dos = null;
         String response = "";
-        try {
-            dos = new DataOutputStream(socket.getOutputStream());
-            dos.write(INSTREAM);
+        try {  // finally to close resources
 
-            InputStream sin = socket.getInputStream();
-
-            int read;
-            byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
-
-            // clamd has an explicit limit on the number of bytes which can be sent,
-            // so we need to be sure not to exceed that.  So, we check for an error condition
-            // with each write
-            while ((read = in.read(buffer))> 0 && sin.available() == 0){
-                dos.writeInt(read);
-                dos.write(buffer, 0, read);
-                dos.flush();            
+            try {
+                dos = new DataOutputStream(socket.getOutputStream());
+            } catch (IOException e) {
+                log.error("could not open socket OutputStream", e);
+                return new ScanResult(e);
             }
 
-            dos.writeInt(0);
-            dos.flush();
- 
-            read = sin.read(buffer);
+            try {
+                dos.write(INSTREAM);
+            } catch (IOException e){
+                log.debug("error writing INSTREAM command", e);
+                return new ScanResult(e);
+            }
+
+            int read = DEFAULT_CHUNK_SIZE;
+            byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
+            while (read == DEFAULT_CHUNK_SIZE){
+                try {
+                    read = in.read(buffer);
+                } catch (IOException e) {
+                    log.debug("error reading from InputStream", e);
+                    return new ScanResult(e);                    
+                }
+
+                // we may exceed the clamd size limit, so we don't immediately return
+                // if we get an error here.
+                try {
+                    dos.writeInt(read);
+                    dos.write(buffer, 0, read);
+                } catch (IOException e){
+                    log.debug("error writing data to socket", e);
+                    break;
+                }
+            }
+
+            try {
+                dos.writeInt(0);
+                dos.flush();
+            } catch (IOException e){
+                log.debug("error writing zero-length chunk to socket", e);
+            }
+
+            try {
+                read = socket.getInputStream().read(buffer);
+            } catch (IOException e){
+                log.debug("error reading result from socket", e);
+                read = 0;
+            }
+
             if (read > 0) response = new String(buffer, 0, read);
 
         } finally {

@@ -5,6 +5,7 @@ public class ScanResult {
     private String result = "";
     private Status status = Status.FAILED;
     private String signature = "";
+    private Exception exception = null;
 
     public enum Status { PASSED, FAILED, ERROR }
 
@@ -19,6 +20,19 @@ public class ScanResult {
         setResult(result);
     }
 
+    public ScanResult(Exception ex){
+        setException(ex);
+        setStatus(Status.ERROR);
+    }
+
+    public Exception getException() {
+        return exception;
+    }
+
+    public void setException(Exception exception) {
+        this.exception = exception;
+    }
+
     public String getResult() {
         return result;
     }
@@ -26,7 +40,9 @@ public class ScanResult {
     public void setResult(String result) {
         this.result = result;
 
-        if (RESPONSE_OK.equals(result)) {
+        if (result == null){
+            setStatus(Status.ERROR);
+        } else if (RESPONSE_OK.equals(result)) {
             setStatus(Status.PASSED);
         } else if (result.endsWith(FOUND_SUFFIX)){
             setSignature(result.substring(STREAM_PREFIX.length(), result.lastIndexOf(FOUND_SUFFIX) - 1 ));
