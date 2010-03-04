@@ -42,16 +42,24 @@ public class ClamScanTestCase extends TestCase {
 	}
 
     public void testTooLarge() throws Exception {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0 ; i < 6000000; i++){
-            sb.append("0000000000");
-        }
-        InputStream is = new ByteArrayInputStream(sb.toString().getBytes());
-
+        InputStream is = new InfiniteInputStream();
 		assertNotNull(is);
         ScanResult result = scanner.scan(is);
         assertEquals(result.getResult(), Status.ERROR, result.getStatus());
 		assertEquals(ScanResult.RESPONSE_SIZE_EXCEEDED, result.getResult());
 	}
+
+    public void testStats() throws Exception {
+        String result = scanner.stats();
+        System.out.println(result);
+        assertTrue(result.startsWith("POOLS"));
+        assertTrue(result.endsWith("END\n"));
+	}
+
+    public void testPing() throws Exception {
+        assertTrue(scanner.ping());
+	}
+
+
 	
 }
