@@ -92,7 +92,7 @@ public class ClamScan {
                 dos.write(cmd);
                 dos.flush();
             } catch (IOException e){
-                log.debug("error writing INSTREAM command", e);
+                log.debug("error writing " + new String(cmd) + " command", e);
                 return null;
             }
 
