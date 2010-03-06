@@ -51,9 +51,8 @@ public class ClamScanTestCase extends TestCase {
 
     public void testStats() throws Exception {
         String result = scanner.stats();
-        System.out.println(result);
         assertTrue(result.startsWith("POOLS"));
-        assertTrue(result.endsWith("END\n"));
+        assertTrue("didn't end with END: " + result, result.endsWith("END\n"));
 	}
 
     public void testPing() throws Exception {

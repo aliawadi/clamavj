@@ -96,11 +96,6 @@ public class ClamScan {
                 return null;
             }
 
-            int read = DEFAULT_CHUNK_SIZE;
-            byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
-
-            StringBuffer sb = new StringBuffer();
-
             InputStream is = null;
             try {
                 is = socket.getInputStream();
@@ -109,6 +104,10 @@ public class ClamScan {
                 return response;
             }
 
+            int read = DEFAULT_CHUNK_SIZE;
+            byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
+            StringBuffer sb = new StringBuffer();
+            
             while (read == DEFAULT_CHUNK_SIZE){
                 try {
                     read = is.read(buffer);
