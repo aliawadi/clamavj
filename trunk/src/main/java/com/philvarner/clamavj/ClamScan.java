@@ -101,11 +101,19 @@ public class ClamScan {
 
             StringBuffer sb = new StringBuffer();
 
+            InputStream is = null;
+            try {
+                is = socket.getInputStream();
+            } catch (IOException e){
+                log.error("error getting InputStream from socket", e);
+                return response;
+            }
+
             while (read == DEFAULT_CHUNK_SIZE){
                 try {
-                    read = socket.getInputStream().read(buffer);
+                    read = is.read(buffer);
                 } catch (IOException e){
-                    log.debug("error reading result from socket", e);
+                    log.error("error reading result from socket", e);
                     break;
                 }
                 sb.append(new String(buffer, 0, read));
